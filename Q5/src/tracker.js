@@ -21,9 +21,27 @@ let currentFilter = "all";
 
 
 function loadDashboardState() {
-    const raw   = localStorage.getItem("dashboardState");
-    const state = JSON.parse(raw);             // No try/catch
-    currentFilter = state.filter;              // No enum validation
+    try {
+        const raw = localStorage.getItem("dashboardState");
+
+        if (!raw) {
+            currentFilter = "all";
+            applyFilter(currentFilter);
+            return;
+        }
+
+        const state = JSON.parse(raw);
+
+        if (!ACCEPTED_FILTERS.includes(state.filter)) {
+            currentFilter = "all";
+        } else {
+            currentFilter = state.filter;
+        }
+
+    } catch (e) {
+        currentFilter = "all";
+    }
+
     applyFilter(currentFilter);
 }
 
@@ -55,9 +73,20 @@ function saveDashboardState() {
 
 
 async function fetchIncidents() {
-    const res  = fetch("/api/incidents");      // Missing await
-    const data = res.json();                   // Missing await; res is a Promise
-    return data;
+    try {
+        const res = await fetch("/api/incidents");
+
+        if (!res.ok) {
+            throw new Error("HTTP error: " + res.status);
+        }
+
+        const data = await res.json();
+        return data;
+
+    } catch (error) {
+        console.error("Failed to fetch incidents:", error);
+        return [];
+    }
 }
 
 
@@ -73,15 +102,40 @@ async function fetchIncidents() {
 
 function renderIncidents(incidents) {
     const container = document.getElementById("incident-list");
-    container.innerHTML = "";                  // Clear previous results
+    container.innerHTML = "";
+
+    // check valid array
+    if (!Array.isArray(incidents)) {
+        const errorMsg = document.createElement("p");
+        errorMsg.textContent = "Error: Invalid incident data.";
+        container.appendChild(errorMsg);
+        return;
+    }
 
     incidents.forEach(function (incident) {
+
+        // validate fields
+        if (
+            typeof incident.title !== "string" || incident.title.trim() === "" ||
+            !ACCEPTED_SEVERITIES.includes(incident.severity)
+        ) {
+            console.warn("Invalid incident skipped:", incident);
+            return;
+        }
+
         const item = document.createElement("li");
-        // UNSAFE – directly inserts API response as HTML
-        item.innerHTML =
-            "<strong>" + incident.title + "</strong>" +
-            " <span class='severity severity-" + incident.severity + "'>" +
-            incident.severity + "</span>";
+
+        const title = document.createElement("strong");
+        title.textContent = incident.title;
+
+        const severity = document.createElement("span");
+        severity.className = "severity severity-" + incident.severity;
+        severity.textContent = incident.severity;
+
+        item.appendChild(title);
+        item.appendChild(document.createTextNode(" "));
+        item.appendChild(severity);
+
         container.appendChild(item);
     });
 }
