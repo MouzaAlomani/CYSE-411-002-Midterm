@@ -4,9 +4,26 @@
 
 
 function loadSession() {
-    const raw = sessionStorage.getItem("session");
-    const session = JSON.parse(raw);          // No try/catch
-    return session;                            // No field validation
+    try {
+        const raw = sessionStorage.getItem("session");
+        if (!raw) return null;
+
+        const session = JSON.parse(raw);
+
+        // validate required fields
+        if (
+            typeof session.userId !== "string" || session.userId.trim() === "" ||
+            typeof session.role !== "string" || session.role.trim() === "" ||
+            typeof session.displayName !== "string" || session.displayName.trim() === ""
+        ) {
+            return null;
+        }
+
+        return session;
+
+    } catch (e) {
+        return null;
+    }
 }
 
 
@@ -18,7 +35,9 @@ function loadSession() {
 
 
 function renderStatusMessage(containerElement, message) {
-    containerElement.innerHTML = "<p>" + message + "</p>";   // UNSAFE
+    const p = document.createElement("p");
+    p.textContent = message;   // SAFE: 
+    containerElement.appendChild(p);
 }
 
 
@@ -30,13 +49,21 @@ function renderStatusMessage(containerElement, message) {
 
 
 function sanitizeSearchQuery(input) {
-    // TODO: Implement sanitization.
-    // Requirements:
-    //   - Allow only letters, digits, spaces, hyphens, underscores
-    //   - Trim leading/trailing whitespace before processing
-    //   - Max 40 characters
-    //   - Return null if the result is empty after sanitization
-    return input;   // UNSAFE – returns raw input unchanged
+    if (!input) return null;
+
+    // Step 1: trim whitespace
+    let cleaned = input.trim();
+
+    // Step 2: allow only valid characters
+    cleaned = cleaned.replace(/[^a-zA-Z0-9 _-]/g, "");
+
+    // Step 3: enforce max length
+    cleaned = cleaned.substring(0, 40);
+
+    // Step 4: return null if empty
+    if (cleaned.length === 0) return null;
+
+    return cleaned;
 }
 
 function performSearch(query) {
